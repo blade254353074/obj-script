@@ -1,4 +1,5 @@
 output
+output.zip
 node_modules
 cars/**/*.obj
 cars/**/*.tga
