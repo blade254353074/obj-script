@@ -7,3 +7,4 @@ cars/**/*.mtl
 cars/**/*.txt
 resource
 requirements.md
+.DS_Store
