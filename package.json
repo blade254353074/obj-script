@@ -6,6 +6,7 @@
   "dependencies": {
     "glob": "^5.0.15",
     "glob-promise": "^1.0.6",
+    "iconv-lite": "^0.4.13",
     "imgc": "^2.0.1",
     "python-shell": "^0.2.0",
     "rimraf": "^2.5.0",

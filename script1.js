@@ -45,6 +45,8 @@ var brandArr = [];
  * @param  {String}   output   输出文件路径
  * @return {Object}            Promise对象
  */
+var queue = Promise.resolve();
+
 function py(input, output) {
   return new Promise(function(resolve, reject) {
     // console.log('processing ' + input);
@@ -118,45 +120,6 @@ function init() {
 }
 
 /**
- * makeChassis 根据转换的JSON和汽车信息，组合chassis对象
- * @param  {Object} chassis        chassis
- * @param  {String} brand          汽车品牌
- * @param  {String} partRaw        去数字的配件名
- * @param  {Array}  spoiler        扰流板数组
- * @param  {String} jsonPath       转换的JSON路径
- * @param  {String} areaJsonPath   转换的area JSON路径
- * @return {undefined}
- */
-function makeChassis(chassis, brand, partRaw, spoiler, jsonPath, areaJsonPath) {
-  var prop = Object.assign({}, tplParts[partRaw] || {});
-  var outputJSON = JSON.parse(fs.readFileSync(jsonPath));
-  if (outputJSON.materials) {
-    prop.color = '#ffffff';
-  }
-  chassis[brand] = chassis[brand] || {};
-  // 是否包含spoiler
-  partRaw = partRaw.indexOf('spoiler') > -1 ? 'spoiler' : partRaw;
-  // 每辆车的part属性
-  prop = chassis[brand][partRaw] = chassis[brand][partRaw] || prop;
-  // choice
-  if (!prop.choices) {
-    if (partRaw.indexOf('spoiler') > -1) {
-      prop.choices = [''];
-      // 向数组末尾添加spoiler路径数组
-      prop.choices = prop.choices.concat(spoiler);
-    } else {
-      prop.choices = [];
-    }
-  }
-  // 在数组索引1位置 插入路径
-  prop.choices.splice(1, 0, jsonPath.slice(15));
-  // area
-  if (areaJsonPath) {
-    prop.area = areaJsonPath.slice(15);
-  }
-}
-
-/**
  * 返回父目录的文件名
  * @param  {String} path    文件路径
  * @param  {String} resolve 相对路径，如 '../'
@@ -185,11 +148,13 @@ function file2prop(filepath, type) {
   // filepath3(accessory):  cars/accessory/{{brand}}pj/{{part}}-{{choice}}.obj
   // filepath3(rim):        cars/wheels/{{size}}/{{brand}}/{{rim}}.obj
   // filepath2(tyre):       cars/wheels/{{size}}/{{tyre}}.obj
+  var prop;
   var brand;
   var size;
+  var fileprop = path.parse(filepath);
   var lastDir = toLowerCase(parentDir(filepath));
   var secondLastDir = toLowerCase(parentDir(filepath, '../'));
-  var filename = toLowerCase(path.parse(filepath).name);
+  var filename = toLowerCase(fileprop.name);
 
   // 判断类型的逻辑
   var sepNum = path.dirname(filepath).split('\/').length - 1;
@@ -201,14 +166,20 @@ function file2prop(filepath, type) {
 
   switch (type) {
     case 'accessory':
-      // 配件
-      brand = toLowerCase(lastDir.slice(0, -2)); // bmw
+      // 配件 || preview
+      if (fileprop.ext === '.png') {
+        type = 'preview'
+      }
+      brand = toLowerCase(lastDir);
+      if (/pj$/.test(lastDir)) {
+        brand = brand.replace(/pj$/, ''); // bmwpj => bmw
+      }
       // 文件名(去掉扩展名)，如：reflector-choice
       var partChoiceArr = filename.split('-'); // [{{part}}, {{choice}}]
       var part = toLowerCase(partChoiceArr[0]); // {{part}}
       var choice = toLowerCase(partChoiceArr[1]); // {{choice}}
       var partRaw = part.replace(/\d+/g, ''); // {{partRaw}}
-      return {
+      prop = {
         type: type,
         filename: filename,
         brand: brand,
@@ -221,7 +192,7 @@ function file2prop(filepath, type) {
       // 轮毂
       brand = lastDir; // oc
       size = secondLastDir; // 14
-      return {
+      prop = {
         type: type,
         filename: filename,
         size: size,
@@ -231,7 +202,7 @@ function file2prop(filepath, type) {
     case 'tyre':
       // 轮胎
       size = lastDir; // 14
-      return {
+      prop = {
         type: type,
         filename: filename,
         size: size,
@@ -240,6 +211,7 @@ function file2prop(filepath, type) {
     default:
       break;
   }
+  return prop;
 }
 
 // 开始处理 chassis
@@ -255,6 +227,10 @@ function spoilerProcess(pattern) {
       .then(function(files) {
         var filesLen = files.length;
         var spoiler = [];
+        if (filesLen === 0) {
+          resolve(spoiler);
+          return;
+        }
         files.forEach(function(filepath, index) {
           var prop = file2prop(filepath);
           var outputDir = 'output/chassis/spoiler/';
@@ -271,6 +247,59 @@ function spoilerProcess(pattern) {
         });
       });
   });
+}
+
+/**
+ * makeChassis 根据转换的JSON和汽车信息，组合chassis对象
+ * @param  {Object} chassis        chassis
+ * @param  {String} brand          汽车品牌
+ * @param  {String} partRaw        去数字的配件名
+ * @param  {Array}  spoiler        扰流板数组
+ * @param  {String} jsonPath       转换的JSON路径
+ * @param  {String} areaJsonPath   转换的area JSON路径
+ * @return {undefined}
+ */
+function makeChassis(chassis, brand, partRaw, spoiler, jsonPath, areaJsonPath, previewPath) {
+  var prop = Object.assign({}, tplParts[partRaw] || {});
+  var outputJSON = JSON.parse(fs.readFileSync(jsonPath));
+  if (outputJSON.materials) {
+    prop.color = '#ffffff';
+  }
+  chassis[brand] = chassis[brand] || {};
+  // 是否包含spoiler
+  partRaw = partRaw.indexOf('spoiler') > -1 ? 'spoiler' : partRaw;
+  // 每辆车的part属性
+  prop = chassis[brand][partRaw] = chassis[brand][partRaw] || prop;
+  // choice
+  if (!prop.choices) {
+    if (partRaw.indexOf('spoiler') > -1) {
+      prop.choices = [''];
+      // 向数组末尾添加spoiler路径数组
+      prop.choices = prop.choices.concat(spoiler);
+    } else {
+      prop.choices = [];
+    }
+  }
+  // 在数组索引1位置 插入路径
+  prop.choices.splice(1, 0, jsonPath.slice(15));
+  // area
+  if (areaJsonPath) {
+    prop.area = areaJsonPath.slice(15);
+  }
+  // 硬编码, TODO
+  prop.previews = false;
+  if (fileExists(previewPath)) {
+    prop.previews = prop.previews || [];
+    prop.previews.push(previewPath.slice(14));
+  }
+}
+
+function chassisPromisePy(input, output) {
+  return function(value) {
+    return new Promise(function(resolve, reject) {
+
+    });
+  }
 }
 
 /**
@@ -297,29 +326,33 @@ function chassisProcess(pattern, spoiler) {
           fileExists(outputDir) || fs.mkdirSync(outputDir);
 
           // 处理模型文件
-          py(filepath, outputPath)
-            .then(function(results) {
-              var areaOutputPath;
-              var areapath = 'cars/area/' + prop.brand + '/' + prop.part + '.obj';
-              // 将转换的JSON再处理
-              reJSON(outputPath, prop.brand, prop.part);
-              // 利用fs检查是否在简模车中有对应同名的obj
-              // 如果存在则输出 {{part}}-area.json
-              if (fileExists(areapath)) {
-                // 有对应
-                areaOutputPath = outputDir + prop.part + '-area.json';
-                py(areapath, areaOutputPath)
-                  .then(function(results) {
-                    reJSON(areaOutputPath, prop.brand, prop.part);
-                  });
-              }
-              makeChassis(chassis, prop.brand, prop.partRaw, spoiler, outputPath, areaOutputPath);
-              // 当处理了所有的文件
-              if (filesLen === index + 1) {
-                fs.writeFileSync('output/chassis.json', jsonFormat(chassis));
-                resolve(chassis);
-              }
-            });
+          queue = queue.then(function() {
+            return py(filepath, outputPath)
+              .then(function(results) {
+                var areaOutputPath;
+                var areapath = 'cars/area/' + prop.brand + '/' + prop.part + '.obj';
+                // 将转换的JSON再处理
+                reJSON(outputPath, prop.brand, prop.part);
+                // 利用fs检查是否在简模车中有对应同名的obj
+                // 如果存在则输出 {{part}}-area.json
+                if (fileExists(areapath)) {
+                  // 有对应
+                  areaOutputPath = outputDir + prop.part + '-area.json';
+                  py(areapath, areaOutputPath)
+                    .then(function(results) {
+                      reJSON(areaOutputPath, prop.brand, prop.part);
+                    });
+                }
+
+                var previewPath = ['cars/previews', prop.brand, prop.filename + '.png'].join(path.sep);
+                makeChassis(chassis, prop.brand, prop.partRaw, spoiler, outputPath, areaOutputPath, previewPath);
+                // 当处理了所有的文件
+                if (filesLen === index + 1) {
+                  fs.writeFileSync('output/chassis.json', jsonFormat(chassis));
+                  resolve(chassis);
+                }
+              });
+          });
         });
       });
   });
@@ -404,6 +437,13 @@ function wheelsProcess(pattern) {
  */
 function tga2png(input) {
   /*
+    file2prop('cars/preview/a3/trunk.png')
+    { type: 'accessory',
+      filename: 'trunk',
+      brand: 'a3',
+      part: 'trunk',
+      partRaw: 'trunk',
+      choice: undefined }
     file2prop('cars/accessory/atenzapj/cventsema.tga')
     { type: 'accessory',
       filename: 'cventsema',
@@ -431,7 +471,11 @@ function tga2png(input) {
     var outputDir;
     switch (prop.type) {
       case 'accessory':
-        outputDir = 'output/chassis/' + parentDir(input).slice(0, -2);
+        if (/pj$/.test(parentDir(input))) {
+          outputDir = 'output/chassis/' + parentDir(input).slice(0, -2);
+          break;
+        }
+        outputDir = 'output/chassis/' + parentDir(input);
         break;
       case 'tyre':
         outputDir = 'output/wheels/' + prop.size;
@@ -442,6 +486,7 @@ function tga2png(input) {
       default:
         break;
     }
+    console.log('converted ' + outputDir + '/' + prop.filename);
     if (outputDir) {
       imgc('"' + input + '"', outputDir, {
           format: 'png',
@@ -519,20 +564,50 @@ function pointProcess(pattern) {
   })
 }
 
+function previewProcess(pattern) {
+  return new Promise(function(resolve, reject) {
+    glob(pattern)
+      .then(function(files) {
+        var previews = {};
+        var filesLen = files.length;
+        files.forEach(function(filepath, index) {
+          var prop = file2prop(filepath)
+            /*{ type: 'preview',
+              filename: 'trunk',
+              brand: 'a3',
+              part: 'trunk',
+              partRaw: 'trunk',
+              choice: undefined }*/
+          var destPath = ['output/chassis', prop.brand, prop.filename + '-preview' + '.png'].join(path.sep);
+          var readStream = fs.createReadStream(filepath);
+          var writeStream = fs.createWriteStream(destPath);
+          console.log('converted ' + destPath);
+          readStream.pipe(writeStream);
+          if (filesLen === index + 1) {
+            resolve();
+          }
+        });
+      });
+  });
+}
+
 init()
   .then(function() {
     spoilerProcess('cars/spoiler/**/*.obj')
       .then(function(spoiler) {
-        chassisProcess('cars/accessory/**/*.obj', spoiler)
+        chassisProcess('cars/accessory/*/*.obj', spoiler)
           .then(function(chassis) {
             setTimeout(function() {
               wheelsProcess('cars/wheels/**/*.obj')
                 .then(function(wheels) {
-                  tgaProcess('cars/{wheels,accessory}/**/*.tga')
+                  tgaProcess('cars/{wheels,accessory}/*/*.tga')
                     .then(function() {
                       pointProcess('cars/{spoiler_point,wheels_point}/**/*.txt')
                         .then(function(point) {
+                          previewProcess('cars/previews/*/*.png')
+                            .then(function() {
 
+                            });
                         });
                     });
                 });
