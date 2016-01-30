@@ -1,10 +1,7 @@
 output
 output.zip
 node_modules
-cars/**/*.obj
-cars/**/*.tga
-cars/**/*.mtl
-cars/**/*.txt
+cars
 resource
 requirements.md
 .DS_Store
