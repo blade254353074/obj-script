@@ -1,0 +1,8 @@
+output
+node_modules
+cars/**/*.obj
+cars/**/*.tga
+cars/**/*.mtl
+cars/**/*.txt
+resource
+requirements.md

@@ -1,0 +1,125 @@
+{
+  "convert": {
+    "body": {
+      "colorAmbient": [0.987, 0.987, 0.987],
+      "colorDiffuse": [0.987, 0.987, 0.987],
+      "colorSpecular": [0.936, 0.936, 0.936],
+      "specularCoef": 20.0,
+      "transparent": true
+    },
+    "bodykit": {
+      "colorAmbient": [0.987, 0.987, 0.987],
+      "colorDiffuse": [0.987, 0.987, 0.987],
+      "colorSpecular": [0.936, 0.936, 0.936],
+      "specularCoef": 20.0,
+      "transparent": true
+    },
+    "caliper": {
+      "colorAmbient": [1, 0, 0.0],
+      "colorDiffuse": [1, 0, 0.0],
+      "colorSpecular": [1, 0.63, 0.63],
+      "specularCoef": 36.0,
+      "transparent": false
+    },
+    "exhaust": {
+      "colorAmbient": [0.7098, 0.7098, 0.7098],
+      "colorDiffuse": [0.7098, 0.7098, 0.7098],
+      "colorSpecular": [0.9, 0.9, 0.9],
+      "specularCoef": 46.0,
+      "transparent": false
+    },
+    "glass": {
+      "colorAmbient": [0.2431, 0.2863, 0.4353],
+      "colorDiffuse": [0.2431, 0.2863, 0.4353],
+      "colorSpecular": [0.792, 0.792, 0.792],
+      "specularCoef": 39.0,
+      "transparent": true
+    },
+    "hood": {
+      "colorAmbient": [0.987, 0.987, 0.987],
+      "colorDiffuse": [0.987, 0.987, 0.987],
+      "colorSpecular": [0.936, 0.936, 0.936],
+      "specularCoef": 20.0,
+      "transparent": true
+    },
+
+    "interior": {
+      "colorAmbient": [1, 1, 1],
+      "colorDiffuse": [1, 1, 1],
+      "colorSpecular": [1, 1, 1],
+      "specularCoef": 59.0,
+      "transparent": false
+    },
+
+    "lens": {
+      "colorAmbient": [0.2431, 0.2863, 0.4353],
+      "colorDiffuse": [0.2431, 0.2863, 0.4353],
+      "colorSpecular": [0.792, 0.792, 0.792],
+      "specularCoef": 39.0,
+      "transparent": true
+    },
+
+    "rim": {
+      "colorAmbient": [0.7098, 0.7098, 0.7098],
+      "colorDiffuse": [0.7098, 0.7098, 0.7098],
+      "colorSpecular": [0.9, 0.9, 0.9],
+      "specularCoef": 46.0,
+      "transparent": false
+    },
+    "rubber": {
+      "colorAmbient": [1, 1, 1],
+      "colorDiffuse": [1, 1, 1],
+      "colorSpecular": [1, 1, 1],
+      "specularCoef": 39.0,
+      "transparent": false
+    },
+    "spoiler": {
+      "colorAmbient": [0.987, 0.987, 0.987],
+      "colorDiffuse": [0.987, 0.987, 0.987],
+      "colorSpecular": [0.936, 0.936, 0.936],
+      "specularCoef": 20.0,
+      "transparent": true
+    },
+    "tyre": {
+      "colorAmbient": [1, 1, 1],
+      "colorDiffuse": [1, 1, 1],
+      "colorSpecular": [1, 1, 1]
+    }
+  },
+
+  "parts": {
+    "body": {
+      "set": true,
+      "all": true
+    },
+    "bodykit": {
+      "set": true,
+      "all": true
+    },
+    "caliper": {
+      "set": true
+    },
+    "exhaust": {
+      "set": true
+    },
+    "glass": {
+      "reflectivity": 1
+    },
+    "hood": {
+      "set": true,
+      "all": true
+    },
+    "interior": {},
+    "lens": {
+      "reflectivity": 1
+    },
+    "rim": {
+      "set": true
+    },
+    "rubber": {},
+    "spoiler": {
+      "set": true
+    },
+    "tyre": {}
+  }
+}

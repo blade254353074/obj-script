@@ -1,0 +1,22 @@
+{
+  "name": "cars",
+  "version": "1.0.0",
+  "description": "node script.js",
+  "main": "script.js",
+  "dependencies": {
+    "glob": "^5.0.15",
+    "glob-promise": "^1.0.6",
+    "imgc": "^2.0.1",
+    "python-shell": "^0.2.0",
+    "rimraf": "^2.5.0",
+    "underscore": "^1.8.3"
+  },
+  "devDependencies": {
+    "q": "^1.4.1"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
