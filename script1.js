@@ -480,30 +480,35 @@ function areaWheelsProcess(pattern) {
  * @return {undefined}
  */
 function makeWheels(wheels, type, size, brand, jsonPath, areaWheels) {
-  var brandObj;
+  var rimBrandObj;
   var choices;
   var prop;
+  var outputJSON;
+  var relativeJsonPath = jsonPath.slice(14);
+  if (type !== 'rim' && type !== 'tyre') {
+    return;
+  }
   wheels[size] = wheels[size] || {
     tyre: {
       choices: []
     },
     rim: {
-      choices: []
+      choices: {}
     }
   };
-  if (type === 'rim' || type === 'tyre') {
-    prop = wheels[size][type];
-  }
-  var outputJSON = JSON.parse(fs.readFileSync(jsonPath));
-  if (outputJSON.materials) {
-    prop.color = '#ffffff';
-  }
-  jsonPath = jsonPath.slice(14);
-  prop.area = areaWheels[size][type];
-  prop.choices.push(jsonPath);
+  prop = wheels[size][type];
   if (type === 'rim') {
+    outputJSON = JSON.parse(fs.readFileSync(jsonPath));
+    if (outputJSON.materials) {
+      prop.color = '#ffffff';
+    }
     addMaterial(prop, 'rim');
+    choices = prop.choices[brand] = prop.choices[brand] || [];
+  } else if (type === 'tyre') {
+    choices = prop.choices;
   }
+  prop.area = areaWheels[size][type];
+  choices.push(relativeJsonPath);
   Object.assign(prop, tplParts[type]);
 }
 
@@ -725,33 +730,6 @@ function previewProcess(pattern) {
   }
 }
 
-// init()
-//   .then(function() {
-//     spoilerProcess('cars/spoiler/**/*.obj')
-//       .then(function(spoiler) {
-//         chassisProcess('cars/accessory/*/*.obj', spoiler)
-//           .then(function(chassis) {
-//             setTimeout(function() {
-//               areaWheelsProcess('cars/wheels_area/*/*.obj')
-//                 .then(function(areaWheels) {
-//                   wheelsProcess('cars/wheels/**/*.obj', areaWheels)
-//                     .then(function(wheels) {
-//                       tgaProcess('cars/{wheels,accessory}/*/*.tga')
-//                         .then(function() {
-//                           pointProcess('cars/{spoiler_point,wheels_point}/**/*.txt')
-//                             .then(function(point) {
-//                               previewProcess('cars/previews/*/*.png')
-//                                 .then(function() {
-
-//                                 });
-//                             });
-//                         });
-//                     });
-//                 });
-//             }, 3000); // 设定延时，以免读取错误
-//           });
-//       });
-//   });
 
 function start() {
   return new Promise(function(resolve, reject) {
@@ -783,6 +761,5 @@ start()
   .catch(function(err) {
     throw err;
   });
-
-// init()
-//   .then(tgaProcess('cars/{wheels,accessory}/*/*.tga'))
+// areaWheelsProcess('cars/wheels_area/*/*.obj')()
+//   .then(wheelsProcess('cars/wheels/**/*.obj'))
