@@ -1,3 +1,5 @@
+# Require
+install GraphicsMagick or ImageMagick
 # 目录结构
 ```bash
 cars
@@ -23,6 +25,7 @@ cars
 │       ├── aez
 │       ├── antera
 │       └── bbs
+├── wheels_area     # 轮胎area
 └── wheels_point    # 轮胎坐标
     ├── a3
     ├── a4

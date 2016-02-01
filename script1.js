@@ -8,6 +8,7 @@ var jsonFormat = require('json-format'); // json格式化
 
 var PythonShell = require('python-shell'); // py脚本 调用
 var imgc = require('imgc'); // tga 图片格式转换
+var gm = require('gm'); // GraphicsMagick and ImageMagick for node.js
 var glob = require('glob-promise'); // 文件遍历
 var rimraf = require('rimraf'); // 清空目录
 
@@ -591,6 +592,7 @@ function tga2png(input) {
   return new Promise(function(resolve, reject) {
     var prop = file2prop(input);
     var outputDir;
+    var outputPath;
     switch (prop.type) {
       case 'accessory':
         if (/pj$/.test(parentDir(input))) {
@@ -608,14 +610,18 @@ function tga2png(input) {
       default:
         break;
     }
-    console.log('converted ' + outputDir + '/' + prop.filename);
     if (outputDir) {
-      imgc('"' + input + '"', outputDir, {
-          format: 'png',
-          quality: 'best',
-        })
-        .then(function() {
-          resolve(outputDir);
+      outputPath = path.resolve(outputDir, prop.filename + '.png');
+      fileExists(outputDir) || fs.mkdirSync(outputDir);
+      gm(input)
+        .write(outputPath, function(err) {
+          if (err) {
+            console.log(err);
+            reject(err);
+            return;
+          }
+          console.log('converted ' + outputPath);
+          resolve(outputPath);
         });
     }
   });
@@ -629,9 +635,9 @@ function tgaProcess(pattern) {
           var filesLen = files.length;
           files.forEach(function(filepath, index) {
             tga2png(filepath)
-              .then(function(outputDir) {
+              .then(function(outputPath) {
                 if (filesLen === index + 1) {
-                  resolve();
+                  resolve(outputPath);
                 }
               });
           });
@@ -777,3 +783,6 @@ start()
   .catch(function(err) {
     throw err;
   });
+
+// init()
+//   .then(tgaProcess('cars/{wheels,accessory}/*/*.tga'))

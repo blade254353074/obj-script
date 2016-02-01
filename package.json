@@ -6,8 +6,10 @@
   "dependencies": {
     "glob": "^5.0.15",
     "glob-promise": "^1.0.6",
+    "gm": "^1.21.1",
     "iconv-lite": "^0.4.13",
     "imgc": "^2.0.1",
+    "json-format": "^0.1.1",
     "python-shell": "^0.2.0",
     "rimraf": "^2.5.0",
     "underscore": "^1.8.3"
@@ -15,6 +17,7 @@
   "devDependencies": {
     "q": "^1.4.1"
   },
+  "repository": "https://github.com/blade254353074/obj-script.git",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
