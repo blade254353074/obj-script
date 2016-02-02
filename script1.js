@@ -102,6 +102,11 @@ function reJSON(output, brand, part, area) {
       // 若materials中包含tga，则转换为png
       if (value.mapAmbient) {
         value.mapDiffuse = value.mapAmbient = value.mapAmbient && value.mapAmbient.replace(/\.tga$/g, '.png');
+        Object.assign(value, {
+          colorAmbient: [1, 1, 1],
+          colorDiffuse: [1, 1, 1],
+          colorSpecular: [1, 1, 1]
+        });
       } else if (!area) {
         // 没贴图，添加 shading: "phong" (不包括area)
         value.shading = 'phong';
@@ -761,5 +766,43 @@ start()
   .catch(function(err) {
     throw err;
   });
+
+
 // areaWheelsProcess('cars/wheels_area/*/*.obj')()
-//   .then(wheelsProcess('cars/wheels/**/*.obj'))
+//   .then(wheelsProcess('cars/wheels/**/*.obj'));
+
+// glob('cars/scenes/*.obj')
+//   .then(function(files) {
+//     var filesLen = files.length;
+//     files.forEach(function(filepath, index) {
+//       var prop = file2prop(filepath);
+//       var outputDir = 'output/';
+//       var outputPath = outputDir + prop.filename + '.json';
+//       py(filepath, outputPath)
+//         .then(function(results) {
+//           reJSON(outputPath, prop.filename);
+//           if (filesLen === index + 1) {
+//             // 返回 spoiler 数组
+//             //fs.writeFileSync('output/chassis.json', jsonFormat(chassis));
+//           }
+//         });
+//     });
+//   });
+// glob('cars/scenes/*.tga')
+//   .then(function(files) {
+//     var filesLen = files.length;
+//     files.forEach(function(filepath, index) {
+//       var prop = file2prop(filepath);
+//       var outputDir = 'output/';
+//       var outputPath = outputDir + prop.filename + '.png';
+//       gm(filepath)
+//         .write(outputPath, function(err) {
+//           if (err) {
+//             console.log(err);
+//             reject(err);
+//             return;
+//           }
+//           console.log('converted ' + outputPath);
+//         });
+//     });
+//   });
