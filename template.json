@@ -92,34 +92,44 @@
       "set": true,
       "all": true
     },
-    "bodykit": {
-      "set": true,
-      "all": true
-    },
-    "caliper": {
+    "fbumper": {
       "set": true
     },
-    "exhaust": {
+    "rbumper": {
       "set": true
     },
-    "glass": {
-      "reflectivity": 1
+    "sideskirt": {
+      "set": true
     },
     "hood": {
       "set": true,
       "all": true
     },
-    "interior": {},
-    "lens": {
-      "reflectivity": 1
+    "roof": {
+      "set": true
+    },
+    "trunk": {
+      "set": true
+    },
+    "spoiler": {
+      "set": true
+    },
+    "reflector": {
+      "set": true
+    },
+    "caliper": {
+      "set": true
     },
     "rim": {
       "set": true
     },
-    "rubber": {},
-    "spoiler": {
-      "set": true
+    "glass": {
+      "reflectivity": 1
     },
+    "lens": {
+      "reflectivity": 1
+    },
+    "interior": {},
     "tyre": {}
   }
 }

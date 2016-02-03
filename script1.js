@@ -4,8 +4,10 @@ var fs = require('fs');
 var path = require('path');
 var _ = require('underscore');
 var Q = require('q'); // q promise
-var jsonFormat = require('json-format'); // json格式化
-
+// var jsonFormat = require('json-format'); // json格式化
+var jsonFormat = function(json) {
+  return JSON.stringify(json, null, 2);
+}
 var PythonShell = require('python-shell'); // py脚本 调用
 var imgc = require('imgc'); // tga 图片格式转换
 var gm = require('gm'); // GraphicsMagick and ImageMagick for node.js
@@ -63,8 +65,7 @@ function py(input, output) {
     }, function(err, results) {
       // 直接抛出，需检查模型文件
       if (err) {
-        console.log(input, output);
-        console.error('转换出错，请检查文件');
+        console.error('转换出错，请检查文件：', input, output);
         reject(err);
         return;
       }
@@ -96,9 +97,6 @@ function reJSON(output, brand, part, area) {
       console.log('两个以上材质的: ' + brand, part)
     }
     outputJSON.materials.forEach(function(value, index, array) {
-      if (tplConvert[part]) {
-        Object.assign(value, tplConvert[part]);
-      }
       // 若materials中包含tga，则转换为png
       if (value.mapAmbient) {
         value.mapDiffuse = value.mapAmbient = value.mapAmbient && value.mapAmbient.replace(/\.tga$/g, '.png');
@@ -110,6 +108,15 @@ function reJSON(output, brand, part, area) {
       } else if (!area) {
         // 没贴图，添加 shading: "phong" (不包括area)
         value.shading = 'phong';
+        Object.assign(value, {
+          colorAmbient: [1, 1, 1],
+          colorDiffuse: [1, 1, 1],
+          colorSpecular: [1, 1, 1]
+        });
+      }
+      // 放在最后覆盖111配置
+      if (tplConvert[part]) {
+        Object.assign(value, tplConvert[part]);
       }
     });
   }
@@ -162,9 +169,10 @@ function toLowerCase(string) {
  * @return {Object}          配件属性对象
  */
 function file2prop(filepath, type) {
-  // filepath3(accessory):  cars/accessory/{{brand}}pj/{{part}}-{{choice}}.obj
-  // filepath3(rim):        cars/wheels/{{size}}/{{brand}}/{{rim}}.obj
-  // filepath2(tyre):       cars/wheels/{{size}}/{{tyre}}.obj
+  // filepath(accessory):  cars/accessory/{{brand}}pj/{{part}}-{{choice}}.obj
+  // filepath(accessory):  cars/accessory/{{brand}}/{{part}}-{{choice}}.obj
+  // filepath(rim):        cars/wheels/rims/{{size}}/{{filename}}.obj
+  // filepath(tyre):       cars/wheels/tyres/{{size}}/{{filename}}.obj
   var prop;
   var brand;
   var size;
@@ -173,12 +181,17 @@ function file2prop(filepath, type) {
   var secondLastDir = toLowerCase(parentDir(filepath, '../'));
   var filename = toLowerCase(fileprop.name);
 
-  // 判断类型的逻辑
-  var sepNum = path.dirname(filepath).split('\/').length - 1;
-  if (sepNum === 3) {
-    type = 'rim';
+  // 判断类型的逻辑 v2
+  if (filepath.indexOf('/accessory/') > -1) {
+    type = 'accessory';
   } else {
-    type = filepath.indexOf('/wheels/') > -1 ? 'tyre' : 'accessory';
+    if (filepath.indexOf('/wheels/rims/') > -1) {
+      type = 'rim';
+    } else if (filepath.indexOf('/wheels/tyres/') > -1) {
+      type = 'tyre';
+    } else {
+      type = 'accessory';
+    }
   }
 
   switch (type) {
@@ -201,28 +214,19 @@ function file2prop(filepath, type) {
         filename: filename,
         brand: brand,
         part: part,
-        partRaw: partRaw,
-        choice: choice
+        partRaw: partRaw
       };
       break;
     case 'rim':
       // 轮毂
-      brand = lastDir; // oc
-      size = secondLastDir; // 14
-      prop = {
-        type: type,
-        filename: filename,
-        size: size,
-        brand: brand,
-      };
-      break;
+      // 目前不要品牌
     case 'tyre':
       // 轮胎
       size = lastDir; // 14
       prop = {
         type: type,
-        filename: filename,
-        size: size,
+        filename: fileprop.name,
+        size: size
       };
       break;
     default:
@@ -323,7 +327,7 @@ function addMaterial(prop, partRaw) {
  * @param  {String} areaJsonPath   转换的area JSON路径
  * @return {undefined}
  */
-function makeChassis(chassis, brand, partRaw, spoiler, jsonPath, areaJsonPath, previewPath) {
+function makeChassis(chassis, brand, partRaw, spoiler, jsonPath, areaJsonPath, previewOriginPath, previewPath) {
   var prop = Object.assign({}, tplParts[partRaw] || {});
   var outputJSON = JSON.parse(fs.readFileSync(jsonPath));
   if (outputJSON.materials) {
@@ -337,8 +341,8 @@ function makeChassis(chassis, brand, partRaw, spoiler, jsonPath, areaJsonPath, p
   // choice
   if (!prop.choices) {
     if (partRaw.indexOf('spoiler') > -1) {
-      prop.choices = [''];
-      // 向数组末尾添加spoiler路径数组
+      // 向数组末尾添加公共 spoiler 路径数组
+      prop.choices = [];
       prop.choices = prop.choices.concat(spoiler);
     } else {
       prop.choices = [];
@@ -346,20 +350,62 @@ function makeChassis(chassis, brand, partRaw, spoiler, jsonPath, areaJsonPath, p
   }
   // 给 prop 添加 material 属性
   addMaterial(prop, partRaw);
-  // 在数组索引1位置 插入路径
-  prop.choices.splice(1, 0, jsonPath.slice(15));
+  // 在数组索引0位置 插入路径
+  prop.choices.splice(0, 0, jsonPath.slice(15));
   // area
   if (areaJsonPath) {
     prop.area = areaJsonPath.slice(15);
   }
   // 硬编码, TODO
-  prop.previews = false;
-  if (fileExists(previewPath)) {
+  prop.previews = prop.previews || false;
+  if (fileExists(previewOriginPath)) {
     prop.previews = prop.previews || [];
     prop.previews.push(previewPath.slice(14));
   }
 }
 
+
+// 处理chassis中 choice顺序问题
+function chassisPropSort(chassis) {
+  _.forEach(chassis, function(car, brand) {
+    // car为汽车信息对象，brand是品牌名
+    _.forEach(car, function(part, partname) {
+      // choices有多个，需处理choice顺序
+      if (part.choices && part.choices.length > 1) {
+        part.choices.sort(function(first, last) {
+          if (first === '') {
+            return false;
+          } else {
+            return last.length < first.length;
+          }
+        });
+      }
+      if (part.previews && part.previews.length > 1) {
+        part.previews.sort(function(first, last) {
+          return last.length < first.length;
+        });
+      }
+    });
+  });
+}
+
+// 处理模型的area，输出areaOutputPath
+function chassisAreaProcess(outputDir, brand, part) {
+  var outputPath;
+  var areapath = 'cars/part_area/' + brand + '/' + part + '.obj';
+  // 将转换的JSON再处理
+  // 利用fs检查是否在简模车中有对应同名的obj
+  // 如果存在则输出 {{part}}-area.json
+  if (fileExists(areapath)) {
+    // 有对应
+    outputPath = outputDir + part + '-area.json';
+    py(areapath, outputPath)
+      .then(function() {
+        reJSON(outputPath, brand, part, true);
+      });
+  }
+  return outputPath; // 有path / undefined
+}
 
 /**
  * chassisProcess 处理机身配件
@@ -367,14 +413,14 @@ function makeChassis(chassis, brand, partRaw, spoiler, jsonPath, areaJsonPath, p
  * @param  {[type]} spoiler [description]
  * @return {undefined}
  */
-function chassisProcess(pattern) {
+function chassisProcess(pattern, accessory, accessoryless) {
   return function(spoiler) {
     return new Promise(function(resolve, reject) {
-      // 遍历 ./cars/accessory/ 目录下的 *.obj 文件
+      // 遍历 ./cars/part/** 目录下的 *.obj 文件
       glob(pattern)
-        .then(function(files) {
+        .then(function(objs) {
           var chassis = {}; // chassis对象，处理完成后会生成chassis.json
-          var filesLen = files.length; // 模型总数
+          var filesLen = objs.length; // 模型总数
           // promises chain 避免 child_process过量
           var promises = Promise.resolve();
           files.forEach(function(filepath, index) {
@@ -390,25 +436,15 @@ function chassisProcess(pattern) {
             promises = promises.then(function() {
               return py(filepath, outputPath)
                 .then(function(results) {
-                  var areaOutputPath;
-                  var areapath = 'cars/area/' + prop.brand + '/' + prop.part + '.obj';
-                  // 将转换的JSON再处理
                   reJSON(outputPath, prop.brand, prop.part);
-                  // 利用fs检查是否在简模车中有对应同名的obj
-                  // 如果存在则输出 {{part}}-area.json
-                  if (fileExists(areapath)) {
-                    // 有对应
-                    areaOutputPath = outputDir + prop.part + '-area.json';
-                    py(areapath, areaOutputPath)
-                      .then(function(results) {
-                        reJSON(areaOutputPath, prop.brand, prop.part, true);
-                      });
-                  }
-
+                  var areaOutputPath = chassisAreaProcess(outputDir, prop.brand, prop.part);
+                  var previewOriginPath = ['cars/previews', prop.brand, prop.filename + '.png'].join(path.sep);
                   var previewPath = ['cars/previews', prop.brand, prop.filename + '-preview.png'].join(path.sep);
-                  makeChassis(chassis, prop.brand, prop.partRaw, spoiler, outputPath, areaOutputPath, previewPath);
+                  makeChassis(chassis, prop.brand, prop.partRaw, spoiler, outputPath, areaOutputPath, previewOriginPath, previewPath);
                   // 当处理了所有的文件
                   if (filesLen === index + 1) {
+                    // 处理chassis中 choice/previews 顺序问题
+                    chassisPropSort(chassis);
                     fs.writeFileSync('output/chassis.json', jsonFormat(chassis));
                     resolve(chassis);
                   }
@@ -452,7 +488,7 @@ function areaWheelsProcess(pattern) {
               part: 'tyre16',
               partRaw: 'tyre',
               choice: undefined }*/
-            // 将tyre中的数字提取出来
+            // 提取 tyre16/16 中的数字
             prop.part = prop.part.match(/\d+/)[0];
             var outputDir = 'output/wheels';
             outputDir += ('/' + prop.brand);
@@ -479,12 +515,12 @@ function areaWheelsProcess(pattern) {
  * @param  {Object} wheels      wheels对象
  * @param  {String} type        类型 tyre|rim
  * @param  {String} size        轮胎尺寸 14|15|16
- * @param  {String} brand       轮胎品牌 oz|antera|bbs
  * @param  {String} jsonPath    转换的JSON路径
  * @param  {Object} areaWheels  wheel area 对象
+ * @param  {String} previewPath 轮毂预览图
  * @return {undefined}
  */
-function makeWheels(wheels, type, size, brand, jsonPath, areaWheels) {
+function makeWheels(wheels, type, size, jsonPath, areaWheels, previewPath) {
   var rimBrandObj;
   var choices;
   var prop;
@@ -498,7 +534,7 @@ function makeWheels(wheels, type, size, brand, jsonPath, areaWheels) {
       choices: []
     },
     rim: {
-      choices: {}
+      choices: []
     }
   };
   prop = wheels[size][type];
@@ -508,13 +544,18 @@ function makeWheels(wheels, type, size, brand, jsonPath, areaWheels) {
       prop.color = '#ffffff';
     }
     addMaterial(prop, 'rim');
-    choices = prop.choices[brand] = prop.choices[brand] || [];
+    if (previewPath) {
+      prop.previews = prop.previews || [];
+      prop.previews.push(previewPath.slice(14));
+    }
   } else if (type === 'tyre') {
-    choices = prop.choices;
+
   }
   prop.area = areaWheels[size][type];
-  choices.push(relativeJsonPath);
+  prop.choices.push(relativeJsonPath);
   Object.assign(prop, tplParts[type]);
+
+  prop.previews = prop.previews || false;
 }
 
 function wheelsProcess(pattern) {
@@ -529,28 +570,33 @@ function wheelsProcess(pattern) {
             /*prop = {
               type: type,
               filename: filename,
-              size: size,
-              brand?: brand,
+              size: size
             };*/
             var outputDir;
             var outputPath;
             // 如果输出目录不存在,则新建目录
             var sizeDir = ['output/wheels', prop.size].join(path.sep);
             fileExists(sizeDir) || fs.mkdirSync(sizeDir);
-            if (prop.type == 'rim') {
-              // 输出json目录：./output/wheels/{{size}}/{{brand}}
-              outputDir = [sizeDir, prop.brand].join(path.sep);
-              outputPath = [outputDir, prop.filename + '.json'].join(path.sep);
-              fileExists(outputDir) || fs.mkdirSync(outputDir);
-            } else if (prop.type == 'tyre') {
-              // 输出json目录：./output/wheels/{{size}}
-              outputDir = sizeDir;
-              outputPath = [outputDir, prop.filename + '.json'].join(path.sep);
-            }
+            outputDir = sizeDir;
+            outputPath = [outputDir, prop.filename + '.json'].join(path.sep);
+
             py(filepath, outputPath)
               .then(function(results) {
+                var previewOriginPath;
+                var previewOriginPNGPath = ['cars/wheels/rims', prop.size, prop.filename + '.png'].join(path.sep);
+                var previewOriginJPGPath = ['cars/wheels/rims', prop.size, prop.filename + '.jpg'].join(path.sep);
+                var previewPath;
+                if (fileExists(previewOriginPNGPath)) {
+                  previewOriginPath = previewOriginPNGPath;
+                  previewPath = ['output/wheels', prop.size, prop.filename + '-preview.png'].join(path.sep);
+                } else if (fileExists(previewOriginJPGPath)) {
+                  previewOriginPath = previewOriginJPGPath;
+                  previewPath = ['output/wheels', prop.size, prop.filename + '-preview.jpg'].join(path.sep);
+                }
+                // 复制jpg png
+                previewOriginPath && fileCopy(previewOriginPath, previewPath);
                 reJSON(outputPath, prop.size, prop.type);
-                makeWheels(wheels, prop.type, prop.size, prop.brand, outputPath, areaWheels);
+                makeWheels(wheels, prop.type, prop.size, outputPath, areaWheels, previewPath);
                 // 处理了所有的 obj
                 if (filesLen === index + 1) {
                   fs.writeFileSync('output/wheels.json', jsonFormat(wheels));
@@ -585,19 +631,10 @@ function tga2png(input) {
       partRaw: 'cventsema',
       choice: undefined }
       output/chassis/parentDir(input).slice(0, -2)
-    file2prop('cars/wheels/17/tyre17.tga')
-    { type: 'tyre', filename: 'tyre17', size: '17' }
-      output/wheels/{{size}}
-    file2prop('cars/wheels/17/oz/rim17.tga')
-    { type: 'rim', filename: 'rim17', size: '17', brand: 'oz' }
-      output/wheels/{{size}}/{{brand}}
-    file2prop('cars/轮毂总成/bmw3/rimsignbmw.tga')
-    { type: 'accessory',
-      filename: 'rimsignbmw',
-      brand: 'bm',
-      part: 'rimsignbmw',
-      partRaw: 'rimsignbmw',
-      choice: undefined }
+    file2prop('cars/wheels/rims/15/MSW-11.png')
+    Object {type: "rim", filename: "MSW-11", size: "15"}
+    file2prop('cars/wheels/tyres/15/tyre15.png')
+    Object {type: "tyre", filename: "tyre15", size: "15"}
   */
   return new Promise(function(resolve, reject) {
     var prop = file2prop(input);
@@ -611,17 +648,15 @@ function tga2png(input) {
         }
         outputDir = 'output/chassis/' + parentDir(input);
         break;
+      case 'rim':
       case 'tyre':
         outputDir = 'output/wheels/' + prop.size;
-        break;
-      case 'rim':
-        outputDir = ['output/wheels', prop.size, prop.brand].join(path.sep);
         break;
       default:
         break;
     }
     if (outputDir) {
-      outputPath = path.resolve(outputDir, prop.filename + '.png');
+      outputPath = outputDir + '/' + prop.filename + '.png'
       fileExists(outputDir) || fs.mkdirSync(outputDir);
       gm(input)
         .write(outputPath, function(err) {
@@ -678,23 +713,24 @@ function pointProcess(pattern) {
           var filesLen = files.length;
           files.forEach(function(filepath, index) {
             var type;
-            var brand = toLowerCase(parentDir(filepath));
+            var filename = toLowerCase(path.basename(filepath, '.txt'));
+            var brand = filename.slice(filename.lastIndexOf('-') + 1);
             var pointArr = fs.readFileSync(filepath, 'utf8')
               .toString()
               .trim()
               .replace(/\r/g, '')
               .toLocaleLowerCase()
               .split('\n');
-
-            if (filepath.indexOf('spoiler_point') > -1) {
-              type = 'spoiler';
-            } else {
-              type = 'wheels';
-            }
             pointArr = _.compact(pointArr);
             pointArr = pointArr.map(function(item) {
               return item.replace(/[^\d-\.]/g, '');
             })
+
+            if (filepath.indexOf('wheels-') > -1) {
+              type = 'wheels';
+            } else {
+              type = 'spoiler';
+            }
             makePosition(position, brand, type, pointArr);
             if (filesLen === index + 1) {
               fs.writeFileSync('output/position.json', jsonFormat(position));
@@ -722,10 +758,8 @@ function previewProcess(pattern) {
                 partRaw: 'trunk',
                 choice: undefined }*/
             var destPath = ['output/chassis', prop.brand, prop.filename + '-preview' + '.png'].join(path.sep);
-            var readStream = fs.createReadStream(filepath);
-            var writeStream = fs.createWriteStream(destPath);
+            fileCopy(filepath, destPath);
             console.log('converted ' + destPath);
-            readStream.pipe(writeStream);
             if (filesLen === index + 1) {
               resolve();
             }
@@ -735,6 +769,12 @@ function previewProcess(pattern) {
   }
 }
 
+function fileCopy(input, output) {
+  var readStream = fs.createReadStream(input);
+  var writeStream = fs.createWriteStream(output);
+  // 复制
+  readStream.pipe(writeStream);
+}
 
 function start() {
   return new Promise(function(resolve, reject) {
@@ -742,15 +782,22 @@ function start() {
       var timeStart = Date.now().valueOf();
       init()
         .then(spoilerProcess('cars/spoiler/**/*.obj')) // 向后传递 spoiler 数组
-        .then(chassisProcess('cars/accessory/*/*.obj'))
+        .then(chassisProcess(
+          'cars/part/**/*.obj',
+          'cars/part/accessory/*/*.obj',
+          'cars/part/accessoryless/*/*.obj'
+        ))
         .then(delay(3000))
         .then(areaWheelsProcess('cars/wheels_area/*/*.obj')) // 向后传递 areaWheels 对象
         .then(wheelsProcess('cars/wheels/**/*.obj')) // 向后传递 wheels 对象
-        .then(tgaProcess('cars/{wheels,accessory}/*/*.tga'))
-        .then(pointProcess('cars/{spoiler_point,wheels_point}/**/*.txt')) // 向后传递 point 对象
+        .then(tgaProcess('cars/{wheels,accessory}/**/*.tga'))
+        .then(pointProcess('cars/part_point/*.txt')) // 向后传递 point 对象
         .then(previewProcess('cars/previews/*/*.png'))
         .then(function() {
           resolve(timeStart);
+        })
+        .catch(function(e) {
+          console.log(e);
         });
     } catch (e) {
       reject(e);
