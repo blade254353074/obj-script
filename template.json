@@ -14,13 +14,6 @@
       "specularCoef": 20.0,
       "transparent": true
     },
-    "caliper": {
-      "colorAmbient": [1, 0, 0.0],
-      "colorDiffuse": [1, 0, 0.0],
-      "colorSpecular": [1, 0.63, 0.63],
-      "specularCoef": 36.0,
-      "transparent": false
-    },
     "exhaust": {
       "colorAmbient": [0.7098, 0.7098, 0.7098],
       "colorDiffuse": [0.7098, 0.7098, 0.7098],
@@ -89,32 +82,39 @@
 
   "parts": {
     "body": {
-      "set": true,
-      "all": true
+      "all": true,
+      "set": true
     },
     "fbumper": {
+      "all": true,
       "set": true
     },
     "rbumper": {
+      "all": true,
       "set": true
     },
     "sideskirt": {
+      "all": true,
       "set": true
     },
     "hood": {
-      "set": true,
-      "all": true
+      "all": true,
+      "set": true
     },
     "roof": {
+      "all": true,
       "set": true
     },
     "trunk": {
+      "all": true,
       "set": true
     },
     "spoiler": {
+      "all": true,
       "set": true
     },
     "reflector": {
+      "all": true,
       "set": true
     },
     "caliper": {

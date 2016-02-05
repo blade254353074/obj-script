@@ -66,6 +66,7 @@ function py(input, output) {
       // 直接抛出，需检查模型文件
       if (err) {
         console.error('转换出错，请检查文件：', input, output);
+        console.log(err);
         reject(err);
         return;
       }
@@ -106,13 +107,13 @@ function reJSON(output, brand, part, area) {
           colorSpecular: [1, 1, 1]
         });
       } else if (!area) {
-        // 没贴图，添加 shading: "phong" (不包括area)
+        // 没贴图且不是area，添加 shading: "phong" (不包括area)
         value.shading = 'phong';
-        Object.assign(value, {
-          colorAmbient: [1, 1, 1],
-          colorDiffuse: [1, 1, 1],
-          colorSpecular: [1, 1, 1]
-        });
+        // Object.assign(value, {
+        //   colorAmbient: [1, 1, 1],
+        //   colorDiffuse: [1, 1, 1],
+        //   colorSpecular: [1, 1, 1]
+        // });
       }
       // 放在最后覆盖111配置
       if (tplConvert[part]) {
@@ -189,6 +190,8 @@ function file2prop(filepath, type) {
       type = 'rim';
     } else if (filepath.indexOf('/wheels/tyres/') > -1) {
       type = 'tyre';
+    }  else if (filepath.indexOf('/wheels/calipers/') > -1) {
+      type = 'caliper';
     } else {
       type = 'accessory';
     }
@@ -222,6 +225,8 @@ function file2prop(filepath, type) {
       // 目前不要品牌
     case 'tyre':
       // 轮胎
+    case 'caliper':
+      // 卡钳
       size = lastDir; // 14
       prop = {
         type: type,
@@ -283,7 +288,6 @@ function addMaterial(prop, partRaw) {
     case 'trunk':
     case 'spoiler':
     case 'reflector':
-    case 'caliper':
       prop.material = 'normal';
       prop.materials = [
         'carbon',
@@ -296,6 +300,7 @@ function addMaterial(prop, partRaw) {
       ]
       break;
     case 'rim':
+    case 'caliper':
       prop.material = 'steel';
       prop.materials = [
         'discolor',
@@ -413,14 +418,14 @@ function chassisAreaProcess(outputDir, brand, part) {
  * @param  {[type]} spoiler [description]
  * @return {undefined}
  */
-function chassisProcess(pattern, accessory, accessoryless) {
+function chassisProcess(pattern) {
   return function(spoiler) {
     return new Promise(function(resolve, reject) {
       // 遍历 ./cars/part/** 目录下的 *.obj 文件
       glob(pattern)
-        .then(function(objs) {
+        .then(function(files) {
           var chassis = {}; // chassis对象，处理完成后会生成chassis.json
-          var filesLen = objs.length; // 模型总数
+          var filesLen = files.length; // 模型总数
           // promises chain 避免 child_process过量
           var promises = Promise.resolve();
           files.forEach(function(filepath, index) {
@@ -526,14 +531,14 @@ function makeWheels(wheels, type, size, jsonPath, areaWheels, previewPath) {
   var prop;
   var outputJSON;
   var relativeJsonPath = jsonPath.slice(14);
-  if (type !== 'rim' && type !== 'tyre') {
-    return;
-  }
   wheels[size] = wheels[size] || {
     tyre: {
       choices: []
     },
     rim: {
+      choices: []
+    },
+    caliper: {
       choices: []
     }
   };
@@ -543,13 +548,14 @@ function makeWheels(wheels, type, size, jsonPath, areaWheels, previewPath) {
     if (outputJSON.materials) {
       prop.color = '#ffffff';
     }
-    addMaterial(prop, 'rim');
+    addMaterial(prop, type);
     if (previewPath) {
       prop.previews = prop.previews || [];
       prop.previews.push(previewPath.slice(14));
     }
-  } else if (type === 'tyre') {
-
+  } else if (type === 'caliper') {
+    // HardCode
+    prop.material = 'steel';
   }
   prop.area = areaWheels[size][type];
   prop.choices.push(relativeJsonPath);
@@ -650,6 +656,7 @@ function tga2png(input) {
         break;
       case 'rim':
       case 'tyre':
+      case 'caliper':
         outputDir = 'output/wheels/' + prop.size;
         break;
       default:
@@ -780,19 +787,16 @@ function start() {
   return new Promise(function(resolve, reject) {
     try {
       var timeStart = Date.now().valueOf();
-      init()
-        .then(spoilerProcess('cars/spoiler/**/*.obj')) // 向后传递 spoiler 数组
-        .then(chassisProcess(
-          'cars/part/**/*.obj',
-          'cars/part/accessory/*/*.obj',
-          'cars/part/accessoryless/*/*.obj'
-        ))
-        .then(delay(3000))
+      // init()
+        // .then(spoilerProcess('cars/spoiler/**/*.obj')) // 向后传递 spoiler 数组
+        // .then(chassisProcess('cars/part/*/*.obj'))
+        // .then(delay(3000))
+        Promise.resolve()
         .then(areaWheelsProcess('cars/wheels_area/*/*.obj')) // 向后传递 areaWheels 对象
         .then(wheelsProcess('cars/wheels/**/*.obj')) // 向后传递 wheels 对象
-        .then(tgaProcess('cars/{wheels,accessory}/**/*.tga'))
-        .then(pointProcess('cars/part_point/*.txt')) // 向后传递 point 对象
-        .then(previewProcess('cars/previews/*/*.png'))
+        .then(tgaProcess('cars/{wheels,part}/**/*.tga'))
+        // .then(pointProcess('cars/part_point/*.txt')) // 向后传递 point 对象
+        // .then(previewProcess('cars/previews/*/*.png'))
         .then(function() {
           resolve(timeStart);
         })
