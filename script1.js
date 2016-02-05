@@ -787,16 +787,15 @@ function start() {
   return new Promise(function(resolve, reject) {
     try {
       var timeStart = Date.now().valueOf();
-      // init()
-        // .then(spoilerProcess('cars/spoiler/**/*.obj')) // 向后传递 spoiler 数组
-        // .then(chassisProcess('cars/part/*/*.obj'))
-        // .then(delay(3000))
-        Promise.resolve()
+      init()
+        .then(spoilerProcess('cars/spoiler/**/*.obj')) // 向后传递 spoiler 数组
+        .then(chassisProcess('cars/part/*/*.obj'))
+        .then(delay(3000))
         .then(areaWheelsProcess('cars/wheels_area/*/*.obj')) // 向后传递 areaWheels 对象
         .then(wheelsProcess('cars/wheels/**/*.obj')) // 向后传递 wheels 对象
         .then(tgaProcess('cars/{wheels,part}/**/*.tga'))
-        // .then(pointProcess('cars/part_point/*.txt')) // 向后传递 point 对象
-        // .then(previewProcess('cars/previews/*/*.png'))
+        .then(pointProcess('cars/part_point/*.txt')) // 向后传递 point 对象
+        .then(previewProcess('cars/previews/*/*.png'))
         .then(function() {
           resolve(timeStart);
         })
